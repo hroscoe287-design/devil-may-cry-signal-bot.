@@ -32,6 +32,6 @@ class DMCSignalEngine:
         # Permissive directional threshold, but WAIT remains when evidence is tied or missing.
         confidence=min(100,round(score))
         signal=side if score>=35 and abs(call-put)>=10 else "WAIT"
-        return {"signal":signal,"score":confidence,"confidence":confidence,"call_score":round(call,1),"put_score":round(put,1),
+        # Display a transparent model estimate, not a measured historical win rate.\n        # Until outcomes are logged and calibrated, keep it clearly marked as uncalibrated.\n        win_probability = max(50, min(85, round(50 + max(0, score - 35) * 0.45))) if signal != "WAIT" else 50\n        return {"signal":signal,"score":confidence,"confidence":confidence,"win_probability":win_probability,\n                "probability_label":"UNCALIBRATED MODEL ESTIMATE","call_score":round(call,1),"put_score":round(put,1),
                 "reason":"Weighted Alligator/Aroon/OSMA confluence" if signal!="WAIT" else "No decisive directional edge yet",
                 "votes":votes,"alligator_expanding":expansion,"settings":{k:v[k] for k in ("aroon_period","osma_fast","osma_slow","osma_signal_period")}}
