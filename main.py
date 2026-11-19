@@ -152,7 +152,7 @@ async def dashboard():
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DEVIL MAY CRY — SIGNAL LAB</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 78% 8%,#52131a,#090a10 58%);color:#f5f5f5;font:15px Arial,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,rgba(5,6,11,.68),rgba(5,6,11,.91)),url('https://i.playground.ru/p/bagp1B2UZx51YcXXs55Arg.jpeg') center 18%/cover fixed no-repeat,#090a10;color:#f5f5f5;font:15px Arial,sans-serif}
 header{padding:22px;background:linear-gradient(90deg,#100d12,#451015);border-bottom:2px solid #b52a32}
 h1{margin:0;font-size:28px;letter-spacing:3px}small{color:#e0a5a5;letter-spacing:2px}
 .wrap{max-width:1000px;margin:auto;padding:16px}.panel{background:#14151d;border:1px solid #56323a;border-radius:12px;padding:16px;margin:12px 0;box-shadow:0 8px 25px #0008}
@@ -201,6 +201,7 @@ async function generate(){
 function renderSignal(s){
  const raw=s.signal||"WAIT";const sig=raw==="CALL"?"UP":raw==="PUT"?"DOWN":raw;const el=document.getElementById("sig");el.textContent=sig;el.className="signal "+(sig==="UP"?"up":sig==="DOWN"?"down":"wait");
  const c=s.confidence||0;document.getElementById('confidence').textContent=c+' / 100 • '+(s.asset||'')+' • '+(s.timeframe||'');
+ const p=Number.isFinite(Number(s.win_probability))?Number(s.win_probability):null;document.getElementById('winProbability').textContent=p===null?'—%':p+'%';document.getElementById('probMeter').style.width=(p===null?0:p)+'%';document.getElementById('probLabel').textContent=s.probability_label||'Model estimate — not historically calibrated';
  document.getElementById('meter').style.width=c+'%';document.getElementById('reason').textContent=s.reason||'';
 }
 async function poll(){
