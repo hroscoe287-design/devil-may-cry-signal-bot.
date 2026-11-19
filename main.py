@@ -188,7 +188,7 @@ async function load(){
 }
 async function apply(){
  const r=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({asset:document.getElementById('market').value,timeframe:document.getElementById('tf').value})}).then(r=>r.json());
- if(!r.ok){alert(r.error||'Could not apply selection');return}
+ if(r.ok!==true){alert(r.error||'Could not apply selection');return}
  document.getElementById('result').textContent='Loading selected market history…';
 }
 async function generate(){
