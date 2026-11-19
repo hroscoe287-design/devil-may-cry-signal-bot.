@@ -159,7 +159,7 @@ h1{margin:0;font-size:28px;letter-spacing:3px}small{color:#e0a5a5;letter-spacing
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 select,button{width:100%;padding:13px;border-radius:8px;background:#222530;color:white;border:1px solid #69434a}
 button{background:#a51f2a;font-weight:bold;margin-top:10px;cursor:pointer}.generate{background:linear-gradient(90deg,#b31f2a,#68121b);font-size:18px;padding:16px}
-.signal{font-size:38px;font-weight:900;text-align:center;padding:20px}.up{color:#4fe08b}.down{color:#ff5964}.wait{color:#ffd36a}
+.signal{font-size:38px;font-weight:900;text-align:center;padding:20px}.up{color:#4fe08b}.down{color:#ff5964}.wait{color:#ffd36a}\n.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}.metric{background:#20212b;border:1px solid #56323a;border-radius:10px;padding:14px;text-align:center}.metric strong{display:block;font-size:30px;margin-top:6px}.metric .muted{letter-spacing:1px}.probfill{height:9px;background:#30313a;border-radius:10px;overflow:hidden;margin-top:10px}.probfill>div{height:100%;width:50%;background:linear-gradient(90deg,#a51f2a,#4fe08b)}
 .muted{color:#a6a8b2;font-size:12px}.status{display:flex;gap:8px;flex-wrap:wrap}.chip{background:#242631;border:1px solid #41434e;border-radius:20px;padding:7px 10px;font-size:12px}
 .meter{height:9px;background:#30313a;border-radius:10px;overflow:hidden;margin:12px 0}.fill{height:100%;width:0;background:#b52a32}
 @media(max-width:600px){.grid{grid-template-columns:1fr}h1{font-size:21px}}
@@ -169,7 +169,7 @@ button{background:#a51f2a;font-weight:bold;margin-top:10px;cursor:pointer}.gener
 <div class="panel"><b>MARKET SELECTOR</b><input id="assetSearch" type="search" placeholder="Search all Pocket Option assets…" oninput="filterAssets()" style="width:100%;margin:10px 0;padding:13px;border-radius:8px;background:#222530;color:white;border:1px solid #69434a"><div class="grid" style="margin-top:10px"><select id="market"></select><select id="tf"></select></div>
 <button onclick="apply()">APPLY MARKET & TIMEFRAME</button><p class="muted" id="catalog">Loading Pocket Option catalog…</p></div>
 <div class="panel"><div class="status"><span class="chip">SIGNAL-ONLY MODE</span><span class="chip">AUTO-TRADING OFF</span></div>
-<div id="sig" class="signal wait">WAIT</div><div id="confidence" style="text-align:center">0 / 100</div><div class="meter"><div id="meter" class="fill"></div></div>
+<div id="sig" class="signal wait">WAIT</div><div class="metrics"><div class="metric"><span class="muted">SIGNAL SCORE</span><strong id="confidence">0 / 100</strong></div><div class="metric"><span class="muted">WIN PROBABILITY</span><strong id="winProbability">—%</strong><div class="probfill"><div id="probMeter"></div></div><span class="muted" id="probLabel">Awaiting analysis</span></div></div><div class="meter"><div id="meter" class="fill"></div></div>
 <p id="reason" class="muted">Waiting for live market data.</p><button class="generate" id="generate" onclick="generate()">⚔ GENERATE SIGNAL</button>
 <p class="muted" id="result"></p></div>
 <div class="panel"><b>INDICATOR CONFLUENCE</b><div id="indicators" class="grid" style="margin-top:12px"></div></div>
