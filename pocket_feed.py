@@ -15,7 +15,7 @@ log.setLevel(logging.WARNING)
 class PocketOptionFeed:
     """Signal-only Pocket Option market feed."""
 
-    def __init__(self, url, auth_json, on_tick, on_history=None, asset="EURUSD_otc", period=60, assets=None, on_history_asset=None):
+    def __init__(self, url, auth_json, on_tick, on_history=None, asset="EURUSD_otc", period=60, assets=None, on_history_asset=None, on_assets=None):
         self.url = url
         self.auth_json = auth_json or ""
         self.on_tick = on_tick
@@ -25,6 +25,7 @@ class PocketOptionFeed:
         self.assets.add(str(asset).lstrip("#"))
         self.period = int(period)
         self.on_history_asset = on_history_asset
+        self.on_assets = on_assets
         self.running = False
         self.connected = False
         self.authenticated = False
@@ -536,6 +537,11 @@ class PocketOptionFeed:
                                     attachments.append(await ws.recv())
                                 body = self._replace_placeholders(body, attachments)
 
+                            if event == "updateAssets" and self.on_assets:
+                                try:
+                                    self.on_assets(body)
+                                except Exception:
+                                    log.exception("Could not parse broker asset catalog")
                             if event == "updateAssets" and self._update_assets_samples < 2:
                                 self._update_assets_samples += 1
                                 log.debug(
