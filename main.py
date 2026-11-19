@@ -166,7 +166,7 @@ button{background:#a51f2a;font-weight:bold;margin-top:10px;cursor:pointer}.gener
 </style></head><body>
 <header><h1>DEVIL MAY CRY</h1><small>DANTE EDITION • INDEPENDENT AI SIGNAL LAB • ANALYZE BEFORE YOU ACT</small></header>
 <div class="wrap">
-<div class="panel"><b>MARKET SELECTOR</b><div class="grid" style="margin-top:10px"><select id="market"></select><select id="tf"></select></div>
+<div class="panel"><b>MARKET SELECTOR</b><input id="assetSearch" type="search" placeholder="Search all Pocket Option assets…" oninput="filterAssets()" style="width:100%;margin:10px 0;padding:13px;border-radius:8px;background:#222530;color:white;border:1px solid #69434a"><div class="grid" style="margin-top:10px"><select id="market"></select><select id="tf"></select></div>
 <button onclick="apply()">APPLY MARKET & TIMEFRAME</button><p class="muted" id="catalog">Loading Pocket Option catalog…</p></div>
 <div class="panel"><div class="status"><span class="chip">SIGNAL-ONLY MODE</span><span class="chip">AUTO-TRADING OFF</span></div>
 <div id="sig" class="signal wait">WAIT</div><div id="confidence" style="text-align:center">0 / 100</div><div class="meter"><div id="meter" class="fill"></div></div>
@@ -176,12 +176,11 @@ button{background:#a51f2a;font-weight:bold;margin-top:10px;cursor:pointer}.gener
 <div class="panel"><b>LIVE FEED STATUS</b><p id="status" class="muted">Connecting…</p></div>
 </div>
 <script>
-let catalog={};
+let catalog={}, allAssetGroups={};
+function filterAssets(){const q=document.getElementById("assetSearch").value.trim().toLowerCase();const sel=document.getElementById("market");const chosen=sel.value;sel.innerHTML="";for(const [group,items] of Object.entries(allAssetGroups)){const matches=items.filter(name=>name.toLowerCase().includes(q));if(!matches.length)continue;const o=document.createElement("optgroup");o.label=group;for(const name of matches){const op=document.createElement("option");op.value=name;op.textContent=name;o.append(op)}sel.append(o)}if([...sel.options].some(o=>o.value===chosen))sel.value=chosen;}
 async function load(){
  const a=await fetch('/api/assets').then(r=>r.json());catalog=a;
- const sel=document.getElementById('market');sel.innerHTML='';
- for(const [group,items] of Object.entries(a.categories)){const o=document.createElement('optgroup');o.label=group;
- for(const name of items){const op=document.createElement('option');op.value=name;op.textContent=name;o.append(op)}sel.append(o)}
+ allAssetGroups=a.categories||{};filterAssets();const sel=document.getElementById("market");
  document.getElementById('catalog').textContent=a.count+' symbols • '+a.source+(a.complete_from_broker?' • broker catalog received':' • broker catalog pending');
  const t=await fetch('/api/timeframes').then(r=>r.json());const tf=document.getElementById('tf');
  tf.innerHTML=Object.keys(t.timeframes).map(x=>'<option value="'+x+'">'+x+'</option>').join('');
@@ -195,12 +194,12 @@ async function apply(){
 async function generate(){
  const b=document.getElementById('generate');b.disabled=true;b.textContent='ANALYZING LIVE DATA…';
  try{const r=await fetch('/api/generate',{method:'POST'}).then(x=>x.json());
- renderSignal(r);document.getElementById('result').textContent=r.candle_count+' candles • '+(r.live_tick_age===null?'No live tick received':'last tick '+r.live_tick_age.toFixed(1)+'s ago')+' • '+(r.feed_connected?'feed connected':'feed not connected');
+ renderSignal(r);document.getElementById("result").textContent=r.candle_count+" candles • "+(r.live_tick_age===null?"No live tick received":"last tick "+r.live_tick_age.toFixed(1)+"s ago")+" • "+(r.feed_connected?"feed connected":"feed not connected")+" • "+(r.authenticated?"authenticated":"not authenticated");
  }catch(e){document.getElementById('result').textContent='Could not generate: '+e.message}
  finally{b.disabled=false;b.textContent='⚔ GENERATE SIGNAL'}
 }
 function renderSignal(s){
- const sig=s.signal||'WAIT',el=document.getElementById('sig');el.textContent=sig;el.className='signal '+(sig==='CALL'?'up':sig==='PUT'?'down':'wait');
+ const raw=s.signal||"WAIT";const sig=raw==="CALL"?"UP":raw==="PUT"?"DOWN":raw;const el=document.getElementById("sig");el.textContent=sig;el.className="signal "+(sig==="UP"?"up":sig==="DOWN"?"down":"wait");
  const c=s.confidence||0;document.getElementById('confidence').textContent=c+' / 100 • '+(s.asset||'')+' • '+(s.timeframe||'');
  document.getElementById('meter').style.width=c+'%';document.getElementById('reason').textContent=s.reason||'';
 }
@@ -208,7 +207,7 @@ async function poll(){
  const [s,h]=await Promise.all([fetch('/api/state').then(r=>r.json()),fetch('/api/health').then(r=>r.json())]);
  renderSignal({...s.signal,asset:s.asset,timeframe:s.timeframe});
  const v=s.indicators||{};document.getElementById('indicators').innerHTML=['jaw','teeth','lips','aroon_up','aroon_down','osma_hist','aroon_period','osma_fast','osma_slow','osma_signal_period'].map(k=>'<div><span class="muted">'+k.replaceAll('_',' ').toUpperCase()+'</span><br><b>'+(v[k]??'—')+'</b></div>').join('');
- document.getElementById('status').textContent='Connected: '+h.feed_connected+' • Authenticated: '+h.authenticated+' • Auth configured: '+h.auth_configured+' • Price: '+(s.price??'—')+' • Auto-execution: OFF'+(h.last_feed_error?' • Feed error: '+h.last_feed_error:'');
+ document.getElementById("status").textContent="Feed: "+(h.feed_connected?"CONNECTED":"DISCONNECTED")+" • Auth: "+(h.authenticated?"OK":"NOT VERIFIED")+" • Auth configured: "+h.auth_configured+" • Live price: "+(s.price??"—")+" • Auto-trading: OFF"+(h.last_feed_error?" • "+h.last_feed_error:"");
 }
 load().then(()=>{poll();setInterval(poll,1500)});
 </script></body></html>""")
