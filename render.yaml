@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: devil-may-cry-signal-bot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PO_WS_URL
+        value: wss://api-us-south.po.market/socket.io/?EIO=4&transport=websocket
+      - key: PO_AUTH_JSON
+        sync: false
+      - key: PO_ASSET
+        value: EURUSD_otc
+      - key: PO_TIMEFRAME
+        value: 10s
