@@ -44,10 +44,10 @@ def adx_di(df, n=14):
     adx_line = dx.ewm(alpha=1/n, adjust=False, min_periods=n).mean()
     return adx_line, plus_di, minus_di
 
-def fractals(df, period=2):
-    # Bill Williams fractal: period=2 means two candles on each side
-    # of the pivot (a five-candle pattern). The newest candle is treated
-    # as still forming, so the pivot is confirmed only after two fully
+def fractals(df, period=3):
+    # Bill Williams fractal: period=3 means three candles on each side
+    # of the pivot (a seven-candle pattern). The newest candle is treated
+    # as still forming, so the pivot is confirmed only after three fully
     # closed candles to its right.
     up_arrow = down_arrow = False
     period = max(1, int(period))
@@ -80,7 +80,7 @@ def calculate(candles, tf):
     au, ad = aroon(df, aroon_n)
     om, oms, oh = osma(c, osma_fast, osma_slow, osma_signal)
     adx_line, plus_di, minus_di = adx_di(df)
-    fractal_period = 2
+    fractal_period = 3
     up_arrow, down_arrow = fractals(df, fractal_period)
     atrv = atr(df)
     last = lambda s: float(s.iloc[-1]) if pd.notna(s.iloc[-1]) else None
