@@ -169,7 +169,7 @@ button{background:#a51f2a;font-weight:bold;margin-top:10px;cursor:pointer}.gener
 <div class="panel"><b>MARKET SELECTOR</b><input id="assetSearch" type="search" placeholder="Search all Pocket Option assets…" oninput="filterAssets()" style="width:100%;margin:10px 0;padding:13px;border-radius:8px;background:#222530;color:white;border:1px solid #69434a"><div class="grid" style="margin-top:10px"><select id="market"></select><select id="tf"></select></div>
 <button onclick="apply()">APPLY MARKET & TIMEFRAME</button><p class="muted" id="catalog">Loading Pocket Option catalog…</p></div>
 <div class="panel"><div class="status"><span class="chip">SIGNAL-ONLY MODE</span><span class="chip">AUTO-TRADING OFF</span></div>
-<div id="sig" class="signal wait">WAIT</div><div class="metrics"><div class="metric"><span class="muted">SIGNAL SCORE</span><strong id="confidence">0 / 100</strong></div><div class="metric"><span class="muted">WIN PROBABILITY</span><strong id="winProbability">—%</strong><div class="probfill"><div id="probMeter"></div></div><span class="muted" id="probLabel">Awaiting analysis</span></div></div><div class="meter"><div id="meter" class="fill"></div></div>
+<div id="sig" class="signal wait">WAIT</div><div class="metrics"><div class="metric"><span class="muted">SIGNAL SCORE</span><strong id="confidence">0 / 100</strong></div><div class="metric"><span class="muted">WIN PROBABILITY</span><strong id="winProbability">—%</strong><div class="probfill"><div id="probMeter"></div></div><span class="muted" id="probLabel">Awaiting analysis</span></div></div><div class="meter"><div id="meter" class="fill"></div></div><div class="metrics"><div class="metric"><span class="muted">RECOMMENDED DURATION</span><strong id="duration">—</strong><span class="muted" id="momentumState">Waiting for DI analysis</span></div><div class="metric"><span class="muted">FAKEOUT RISK</span><strong id="fakeoutRisk">—</strong><span class="muted" id="fakeoutWarning">Monitoring DI movement</span></div></div>
 <p id="reason" class="muted">Waiting for live market data.</p><button class="generate" id="generate" onclick="generate()">⚔ GENERATE SIGNAL</button>
 <p class="muted" id="result"></p></div>
 <div class="panel"><b>INDICATOR CONFLUENCE</b><div id="indicators" class="grid" style="margin-top:12px"></div><div id="scoreBreakdown" style="margin-top:14px"></div></div>
@@ -202,7 +202,11 @@ function renderSignal(s){
  const raw=s.signal||"WAIT";const sig=raw==="CALL"?"UP":raw==="PUT"?"DOWN":raw;const el=document.getElementById("sig");el.textContent=sig;el.className="signal "+(sig==="UP"?"up":sig==="DOWN"?"down":"wait");
  const c=s.confidence||0;document.getElementById('confidence').textContent=c+' / 100 • '+(s.asset||'')+' • '+(s.timeframe||'');
  const p=Number.isFinite(Number(s.win_probability))?Number(s.win_probability):null;document.getElementById('winProbability').textContent=p===null?'—%':p+'%';document.getElementById('probMeter').style.width=(p===null?0:p)+'%';document.getElementById('probLabel').textContent=s.probability_label||'Model estimate — not historically calibrated';
- document.getElementById('meter').style.width=c+'%';document.getElementById('reason').textContent=s.reason||'';
+ document.getElementById('meter').style.width=c+'%';
+ document.getElementById('duration').textContent=s.recommended_duration_seconds==null?'WAIT':s.recommended_duration_seconds+' sec';
+ document.getElementById('momentumState').textContent=(s.momentum_state||'—').replaceAll('_',' ');
+ document.getElementById('fakeoutRisk').textContent=s.fakeout_risk||'—';
+ document.getElementById('fakeoutWarning').textContent=s.fakeout_warning||'Monitoring DI movement';document.getElementById('reason').textContent=s.reason||'';
 }
 async function poll(){
  const [s,h]=await Promise.all([fetch('/api/state').then(r=>r.json()),fetch('/api/health').then(r=>r.json())]);
