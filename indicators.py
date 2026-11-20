@@ -74,6 +74,22 @@ def fractals(df, period=3):
         down_arrow = bool(pivot_low == window_low.min() and (window_low == pivot_low).sum() == 1)
     return up_arrow, down_arrow
 
+def early_fractals(df, period=3):
+    # Provisional candidate: same three-candle left wing, only one closed
+    # right-side candle. It is not a confirmed fractal and can disappear.
+    period = max(1, int(period))
+    up_arrow = down_arrow = False
+    right = 1
+    if len(df) >= period + right + 2:
+        pivot = len(df) - 2 - right
+        start, end = pivot - period, pivot + right + 1
+        highs = df.high.astype(float).iloc[start:end]
+        lows = df.low.astype(float).iloc[start:end]
+        ph, pl = float(df.high.iloc[pivot]), float(df.low.iloc[pivot])
+        up_arrow = bool(ph == highs.max() and (highs == ph).sum() == 1)
+        down_arrow = bool(pl == lows.min() and (lows == pl).sum() == 1)
+    return up_arrow, down_arrow
+
 def calculate(candles, tf):
     if len(candles) < 35:
         return {"ready": False, "reason": "Waiting for 35 candles", "values": {}}
@@ -100,6 +116,7 @@ def calculate(candles, tf):
     adx_line, plus_di, minus_di = adx_di(df)
     fractal_period = 3
     up_arrow, down_arrow = fractals(df, fractal_period)
+    early_up_arrow, early_down_arrow = early_fractals(df, fractal_period)
     atrv = atr(df)
     last = lambda s: float(s.iloc[-1]) if pd.notna(s.iloc[-1]) else None
     prev = lambda s: float(s.iloc[-2]) if len(s) > 1 and pd.notna(s.iloc[-2]) else None
@@ -144,6 +161,7 @@ def calculate(candles, tf):
         "di_spread": di_spread, "di_spread_prev": di_spread_prev,
         "di_velocity": di_velocity, "di_acceleration": di_acceleration,
         "fractal_up_arrow": up_arrow, "fractal_down_arrow": down_arrow,
+        "fractal_early_up_arrow": early_up_arrow, "fractal_early_down_arrow": early_down_arrow,
         "fractal_period": fractal_period,
         "fractal_mapping": {"up_arrow": "PUT", "down_arrow": "CALL"},
         "candle_direction": direction, "candle_body_ratio": body_ratio,
