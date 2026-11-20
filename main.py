@@ -172,7 +172,7 @@ button{background:#a51f2a;font-weight:bold;margin-top:10px;cursor:pointer}.gener
 <div id="sig" class="signal wait">WAIT</div><div class="metrics"><div class="metric"><span class="muted">SIGNAL SCORE</span><strong id="confidence">0 / 100</strong></div><div class="metric"><span class="muted">WIN PROBABILITY</span><strong id="winProbability">—%</strong><div class="probfill"><div id="probMeter"></div></div><span class="muted" id="probLabel">Awaiting analysis</span></div></div><div class="meter"><div id="meter" class="fill"></div></div>
 <p id="reason" class="muted">Waiting for live market data.</p><button class="generate" id="generate" onclick="generate()">⚔ GENERATE SIGNAL</button>
 <p class="muted" id="result"></p></div>
-<div class="panel"><b>INDICATOR CONFLUENCE</b><div id="indicators" class="grid" style="margin-top:12px"></div></div>
+<div class="panel"><b>INDICATOR CONFLUENCE</b><div id="indicators" class="grid" style="margin-top:12px"></div><div id="scoreBreakdown" style="margin-top:14px"></div></div>
 <div class="panel"><b>LIVE FEED STATUS</b><p id="status" class="muted">Connecting…</p></div>
 </div>
 <script>
@@ -207,7 +207,7 @@ function renderSignal(s){
 async function poll(){
  const [s,h]=await Promise.all([fetch('/api/state').then(r=>r.json()),fetch('/api/health').then(r=>r.json())]);
  renderSignal({...s.signal,asset:s.asset,timeframe:s.timeframe});
- const v=s.indicators||{};document.getElementById('indicators').innerHTML=['jaw','teeth','lips','adx','plus_di','minus_di','aroon_up','aroon_down','osma_hist','fractal_up_arrow','fractal_down_arrow','aroon_period','osma_fast','osma_slow','osma_signal_period'].map(k=>'<div><span class="muted">'+k==='fractal_up_arrow'?'FRACTAL UP = BEARISH':k==='fractal_down_arrow'?'FRACTAL DOWN = BULLISH':k.replaceAll('_',' ').toUpperCase()+'</span><br><b>'+(v[k]??'—')+'</b></div>').join('');
+ const votes=(s.signal&&s.signal.votes)||[];document.getElementById('scoreBreakdown').innerHTML='<b class="muted">LIVE SCORE BREAKDOWN</b>'+votes.map(x=>'<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #343540"><span>'+x.indicator+' <small>'+x.direction+'</small></span><b>'+x.points+' / '+(x.indicator==='Williams Alligator'?20:x.indicator==='ADX +DI / -DI'?25:x.indicator==='Aroon'?15:x.indicator==='OsMA'?15:x.indicator==='Fractal'?15:x.indicator==='Candle strength'?5:5)+'</b></div>').join('');\n const v=s.indicators||{};document.getElementById('indicators').innerHTML=['jaw','teeth','lips','adx','plus_di','minus_di','aroon_up','aroon_down','osma_hist','fractal_up_arrow','fractal_down_arrow','aroon_period','osma_fast','osma_slow','osma_signal_period'].map(k=>'<div><span class="muted">'+k==='fractal_up_arrow'?'FRACTAL UP = BEARISH':k==='fractal_down_arrow'?'FRACTAL DOWN = BULLISH':k.replaceAll('_',' ').toUpperCase()+'</span><br><b>'+(v[k]??'—')+'</b></div>').join('');
  document.getElementById("status").textContent="Feed: "+(h.feed_connected?"CONNECTED":"DISCONNECTED")+" • Auth: "+(h.authenticated?"OK":"NOT VERIFIED")+" • Auth configured: "+h.auth_configured+" • Live price: "+(s.price??"—")+" • Auto-trading: OFF"+(h.last_feed_error?" • "+h.last_feed_error:"");
 }
 load().then(()=>{poll();setInterval(poll,1500)});
