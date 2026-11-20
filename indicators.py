@@ -44,8 +44,8 @@ def adx_di(df, n=14):
     adx_line = dx.ewm(alpha=1/n, adjust=False, min_periods=n).mean()
     return adx_line, plus_di, minus_di
 
-def fractals(df, period=3):
-    # Setting 3: three-candle pivot (one candle on either side).
+def fractals(df, period=2):
+    # Setting 2: faster three-candle pivot (one candle on either side).
     # The last candle is still forming; use the last fully closed right-side candle.
     up_arrow = down_arrow = False
     if len(df) >= period:
@@ -74,7 +74,7 @@ def calculate(candles, tf):
     au, ad = aroon(df, aroon_n)
     om, oms, oh = osma(c, osma_fast, osma_slow, osma_signal)
     adx_line, plus_di, minus_di = adx_di(df)
-    fractal_period = 3
+    fractal_period = 2
     up_arrow, down_arrow = fractals(df, fractal_period)
     atrv = atr(df)
     last = lambda s: float(s.iloc[-1]) if pd.notna(s.iloc[-1]) else None
