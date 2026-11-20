@@ -46,10 +46,10 @@ def adx_di(df, n=14):
 
 def fractals(df, period=3):
     # Setting 3: three-candle pivot (one candle on either side).
-    # Only emit once the right-side candle has closed.
+    # The last candle is still forming; use the last fully closed right-side candle.
     up_arrow = down_arrow = False
     if len(df) >= period:
-        pivot = len(df) - 2
+        pivot = len(df) - 3
         left = period // 2
         start = pivot - left
         window_high = df.high.astype(float).iloc[start:pivot+left+1]
