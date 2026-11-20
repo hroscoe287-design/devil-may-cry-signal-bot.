@@ -36,12 +36,12 @@ class DMCSignalEngine:
                 "detail": detail,
             })
 
-        # Fractal setting 2 = faster three-candle pivot, confirmed after its right candle closes.
-        # User mapping: downward arrow bullish; upward arrow bearish.
+        # Fractal setting 2 = standard five-candle Bill Williams pivot (two bars each side),
+        # confirmed after both right-side candles close. User mapping: downward arrow bullish; upward arrow bearish.
         fractal_side = "PUT" if v.get("fractal_up_arrow") else (
             "CALL" if v.get("fractal_down_arrow") else "WAIT")
         award("Fractal", fractal_side, 20 if fractal_side != "WAIT" else 0,
-              "Setting 2 | upward arrow = bearish/SELL; downward arrow = bullish/BUY")
+              "Setting 2 | 2 candles on each side; upward arrow = bearish/SELL; downward arrow = bullish/BUY")
 
         # ADX directional lines: crossover side + spread size + widening strength.
         plus_di, minus_di = v.get("plus_di"), v.get("minus_di")
