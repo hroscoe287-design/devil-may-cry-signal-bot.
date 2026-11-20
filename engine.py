@@ -16,6 +16,44 @@ class DMCSignalEngine:
     def _clamp(value, low=0.0, high=1.0):
         return max(low, min(high, float(value)))
 
+    @staticmethod
+    def _duration_guidance(values, votes, di_side, spread, velocity, acceleration):
+        """Recommend a signal horizon from current DI momentum; never execute a trade."""
+        tf = max(1, int(values.get("selected_timeframe_seconds") or 10))
+        gap = abs(spread or 0.0)
+        small_x, wide_x = gap < 8.0, gap >= 15.0
+        velocity_side = "CALL" if (velocity or 0) > 0 else "PUT" if (velocity or 0) < 0 else "WAIT"
+        acceleration_side = "CALL" if (acceleration or 0) > 0 else "PUT" if (acceleration or 0) < 0 else "WAIT"
+        aligned = sum(1 for item in votes if item["direction"] == di_side) if di_side != "WAIT" else 0
+        opposing = sum(1 for item in votes if item["direction"] not in (di_side, "WAIT")) if di_side != "WAIT" else 0
+        reversing = di_side == "WAIT" or velocity_side not in ("WAIT", di_side) or (acceleration_side not in ("WAIT", di_side) and opposing >= 2)
+        if reversing:
+            state, risk, fraction = "MOMENTUM_REVERSING", "HIGH", None
+        elif small_x:
+            state = "SMALL_X_DEVELOPING" if velocity_side == di_side else "SMALL_X_UNCONFIRMED"
+            risk = "LOW" if velocity_side == di_side and aligned >= 3 else "MODERATE"
+            fraction = 0.45 if velocity_side == di_side and aligned >= 2 else 0.35
+        elif wide_x and velocity_side == di_side and acceleration_side in ("WAIT", di_side):
+            state, risk, fraction = "WIDE_X_EXPANDING", "LOW", 0.90
+        elif wide_x:
+            state, risk, fraction = "WIDE_X_FADING", "MODERATE", 0.55
+        else:
+            state, risk = "DI_CROSSOVER_BUILDING", "MODERATE"
+            fraction = 0.65 if velocity_side == di_side else 0.40
+        seconds = max(2, min(tf, int(round(tf * fraction)))) if fraction is not None else None
+        warning = ("DI momentum is reversing; current direction is unstable." if risk == "HIGH" else
+                   "Small DI separation: use a shorter horizon and watch for reversal." if small_x else
+                   "DI spread is weakening; shorten the expected signal horizon." if state == "WIDE_X_FADING" else
+                   "DI spread and momentum are expanding; longer horizon is only a model estimate." if state == "WIDE_X_EXPANDING" else
+                   "Watch the next DI updates for confirmation.")
+        return {"momentum_state": state, "fakeout_risk": risk, "fakeout_warning": warning,
+                "recommended_duration_seconds": seconds,
+                "duration_basis": "chart timeframe multiplied by momentum-adjusted fraction; recommendation only",
+                "di_spread": round(spread, 3) if spread is not None else None,
+                "di_velocity": round(velocity, 3) if velocity is not None else None,
+                "di_acceleration": round(acceleration, 3) if acceleration is not None else None,
+                "small_x": small_x, "wide_x": wide_x}
+
     def evaluate(self, result):
         if not result.get("ready"):
             return {"signal": "WAIT", "score": 0, "confidence": 0,
@@ -115,6 +153,7 @@ class DMCSignalEngine:
         win_probability = (max(50, min(85, round(50 + max(0, score - 55) * 0.6)))
                            if signal != "WAIT" else 50)
         aligned = sum(1 for vote in votes if vote["direction"] == side) if side != "WAIT" else 0
+        duration = self._duration_guidance(v, votes, di_side, spread, velocity, acceleration)
         return {
             "signal": signal, "score": confidence, "confidence": confidence,
             "win_probability": win_probability,
@@ -125,7 +164,7 @@ class DMCSignalEngine:
             "reason": (f"{aligned}/8 scored components favor {side}; independent weighted scoring"
                        if signal != "WAIT" else
                        f"WAIT: leading side has {round(score, 1)}/55 points; indicators still accumulate independently"),
-            "votes": votes, "automatic_execution": False, "mode": "SIGNAL_ONLY",
+            "votes": votes, **duration, "automatic_execution": False, "mode": "SIGNAL_ONLY",
             "settings": {k: v[k] for k in ("fractal_period", "aroon_period", "osma_fast",
                          "osma_slow", "osma_signal_period") if k in v},
         }
