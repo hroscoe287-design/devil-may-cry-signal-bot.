@@ -44,16 +44,20 @@ def adx_di(df, n=14):
     adx_line = dx.ewm(alpha=1/n, adjust=False, min_periods=n).mean()
     return adx_line, plus_di, minus_di
 
-def fractals(df):
-    # Five-candle Williams fractal; pivot is confirmed after two right-side candles close.
-    high, low = df.high.astype(float), df.low.astype(float)
+def fractals(df, period=3):
+    # Setting 3: three-candle pivot (one candle on either side).
+    # Only emit once the right-side candle has closed.
     up_arrow = down_arrow = False
-    if len(df) >= 5:
-        i = len(df)-3
-        window_high = high.iloc[i-2:i+3]
-        window_low = low.iloc[i-2:i+3]
-        up_arrow = bool(high.iloc[i] == window_high.max() and (window_high == high.iloc[i]).sum() == 1)
-        down_arrow = bool(low.iloc[i] == window_low.min() and (window_low == low.iloc[i]).sum() == 1)
+    if len(df) >= period:
+        pivot = len(df) - 2
+        left = period // 2
+        start = pivot - left
+        window_high = df.high.astype(float).iloc[start:pivot+left+1]
+        window_low = df.low.astype(float).iloc[start:pivot+left+1]
+        pivot_high = float(df.high.iloc[pivot])
+        pivot_low = float(df.low.iloc[pivot])
+        up_arrow = bool(pivot_high == window_high.max() and (window_high == pivot_high).sum() == 1)
+        down_arrow = bool(pivot_low == window_low.min() and (window_low == pivot_low).sum() == 1)
     return up_arrow, down_arrow
 
 def calculate(candles, tf):
@@ -61,7 +65,6 @@ def calculate(candles, tf):
         return {"ready": False, "reason": "Waiting for 35 candles", "values": {}}
     df = pd.DataFrame(candles)
     c = df.close.astype(float)
-    # Preserve 10-second baseline and scale indicator lookbacks with selected timeframe.
     scale = max(1, round(tf/10))
     aroon_n = max(10, min(50, 10*scale))
     osma_fast = max(5, min(30, 10*scale))
@@ -71,7 +74,8 @@ def calculate(candles, tf):
     au, ad = aroon(df, aroon_n)
     om, oms, oh = osma(c, osma_fast, osma_slow, osma_signal)
     adx_line, plus_di, minus_di = adx_di(df)
-    up_arrow, down_arrow = fractals(df)
+    fractal_period = 3
+    up_arrow, down_arrow = fractals(df, fractal_period)
     atrv = atr(df)
     last = lambda s: float(s.iloc[-1]) if pd.notna(s.iloc[-1]) else None
     prev = lambda s: float(s.iloc[-2]) if len(s) > 1 and pd.notna(s.iloc[-2]) else None
@@ -85,17 +89,24 @@ def calculate(candles, tf):
     else:
         opposing_wick = candle_range
     wick_ratio = opposing_wick/candle_range
-    di_spread = last(plus_di)-last(minus_di) if last(plus_di) is not None and last(minus_di) is not None else None
-    di_spread_prev = prev(plus_di)-prev(minus_di) if prev(plus_di) is not None and prev(minus_di) is not None else None
+    plus_now, minus_now = last(plus_di), last(minus_di)
+    plus_prev, minus_prev = prev(plus_di), prev(minus_di)
+    di_spread = plus_now-minus_now if plus_now is not None and minus_now is not None else None
+    di_spread_prev = plus_prev-minus_prev if plus_prev is not None and minus_prev is not None else None
+    aroon_spread = last(au)-last(ad) if last(au) is not None and last(ad) is not None else None
+    aroon_spread_prev = prev(au)-prev(ad) if prev(au) is not None and prev(ad) is not None else None
+    alligator_mouth_prev = abs(prev(lips)-prev(jaw)) if prev(lips) is not None and prev(jaw) is not None else None
     return {"ready": True, "values": {
         "price": float(c.iloc[-1]), "jaw": last(jaw), "teeth": last(teeth), "lips": last(lips),
         "jaw_prev": prev(jaw), "teeth_prev": prev(teeth), "lips_prev": prev(lips),
-        "aroon_up": last(au), "aroon_down": last(ad),
+        "alligator_mouth_prev": alligator_mouth_prev,
+        "aroon_up": last(au), "aroon_down": last(ad), "aroon_spread_prev": aroon_spread_prev,
         "osma": last(om), "osma_signal": last(oms), "osma_hist": last(oh), "osma_hist_prev": prev(oh),
-        "adx": last(adx_line), "plus_di": last(plus_di), "minus_di": last(minus_di),
-        "plus_di_prev": prev(plus_di), "minus_di_prev": prev(minus_di),
+        "adx": last(adx_line), "plus_di": plus_now, "minus_di": minus_now,
+        "plus_di_prev": plus_prev, "minus_di_prev": minus_prev,
         "di_spread": di_spread, "di_spread_prev": di_spread_prev,
         "fractal_up_arrow": up_arrow, "fractal_down_arrow": down_arrow,
+        "fractal_period": fractal_period,
         "fractal_mapping": {"up_arrow": "PUT", "down_arrow": "CALL"},
         "candle_direction": direction, "candle_body_ratio": body_ratio,
         "opposing_wick_ratio": wick_ratio, "atr": last(atrv),
