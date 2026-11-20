@@ -45,15 +45,18 @@ def adx_di(df, n=14):
     return adx_line, plus_di, minus_di
 
 def fractals(df, period=2):
-    # Setting 2: faster three-candle pivot (one candle on either side).
-    # The last candle is still forming; use the last fully closed right-side candle.
+    # Bill Williams fractal: period=2 means two candles on each side
+    # of the pivot (a five-candle pattern). The newest candle is treated
+    # as still forming, so the pivot is confirmed only after two fully
+    # closed candles to its right.
     up_arrow = down_arrow = False
-    if len(df) >= period:
-        pivot = len(df) - 3
-        left = period // 2
-        start = pivot - left
-        window_high = df.high.astype(float).iloc[start:pivot+left+1]
-        window_low = df.low.astype(float).iloc[start:pivot+left+1]
+    period = max(1, int(period))
+    if len(df) >= (2 * period + 2):
+        pivot = len(df) - 2 - period
+        start = pivot - period
+        end = pivot + period + 1
+        window_high = df.high.astype(float).iloc[start:end]
+        window_low = df.low.astype(float).iloc[start:end]
         pivot_high = float(df.high.iloc[pivot])
         pivot_low = float(df.low.iloc[pivot])
         up_arrow = bool(pivot_high == window_high.max() and (window_high == pivot_high).sum() == 1)
