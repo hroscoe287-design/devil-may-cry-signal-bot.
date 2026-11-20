@@ -81,11 +81,16 @@ def calculate(candles, tf):
     c = df.close.astype(float)
     # Aroon 10 and OsMA 10/20/10 are the 30-second-candle baseline;
     # scale lookbacks proportionally for the selected chart timeframe.
-    scale = 30.0 / float(tf)
-    aroon_n = max(2, round(10 * scale))
-    osma_fast = max(2, round(10 * scale))
-    osma_slow = max(osma_fast + 1, round(20 * scale))
-    osma_signal = max(2, round(10 * scale))
+    selected_tf_seconds = float(tf)
+    reference_tf_seconds = 30.0
+    # Preserve the indicator lookback in elapsed market time when chart TF changes.
+    # Baseline: 30-second candles, Aroon 10, OsMA 10/20/10.
+    scale = reference_tf_seconds / selected_tf_seconds
+    scaled_period = lambda base: max(2, int(base * scale + 0.5))
+    aroon_n = scaled_period(10)
+    osma_fast = scaled_period(10)
+    osma_slow = max(osma_fast + 1, scaled_period(20))
+    osma_signal = scaled_period(10)
     jaw, teeth, lips = alligator(df)
     au, ad = aroon(df, aroon_n)
     om, oms, oh = osma(c, osma_fast, osma_slow, osma_signal)
@@ -145,4 +150,8 @@ def calculate(candles, tf):
         "opposing_wick_ratio": wick_ratio, "atr": last(atrv),
         "aroon_period": aroon_n, "osma_fast": osma_fast, "osma_slow": osma_slow,
         "osma_signal_period": osma_signal,
+        "selected_timeframe_seconds": selected_tf_seconds,
+        "reference_timeframe_seconds": reference_tf_seconds,
+        "indicator_scale_factor": scale,
+        "reference_trade_duration_seconds": 120,
     }}
