@@ -207,7 +207,7 @@ function renderSignal(s){
 async function poll(){
  const [s,h]=await Promise.all([fetch('/api/state').then(r=>r.json()),fetch('/api/health').then(r=>r.json())]);
  renderSignal({...s.signal,asset:s.asset,timeframe:s.timeframe});
- const v=s.indicators||{};document.getElementById('indicators').innerHTML=['jaw','teeth','lips','aroon_up','aroon_down','osma_hist','aroon_period','osma_fast','osma_slow','osma_signal_period'].map(k=>'<div><span class="muted">'+k.replaceAll('_',' ').toUpperCase()+'</span><br><b>'+(v[k]??'—')+'</b></div>').join('');
+ const v=s.indicators||{};document.getElementById('indicators').innerHTML=['jaw','teeth','lips','adx','plus_di','minus_di','aroon_up','aroon_down','osma_hist','fractal_up_arrow','fractal_down_arrow','aroon_period','osma_fast','osma_slow','osma_signal_period'].map(k=>'<div><span class="muted">'+k==='fractal_up_arrow'?'FRACTAL UP = BEARISH':k==='fractal_down_arrow'?'FRACTAL DOWN = BULLISH':k.replaceAll('_',' ').toUpperCase()+'</span><br><b>'+(v[k]??'—')+'</b></div>').join('');
  document.getElementById("status").textContent="Feed: "+(h.feed_connected?"CONNECTED":"DISCONNECTED")+" • Auth: "+(h.authenticated?"OK":"NOT VERIFIED")+" • Auth configured: "+h.auth_configured+" • Live price: "+(s.price??"—")+" • Auto-trading: OFF"+(h.last_feed_error?" • "+h.last_feed_error:"");
 }
 load().then(()=>{poll();setInterval(poll,1500)});
