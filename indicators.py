@@ -68,11 +68,14 @@ def calculate(candles, tf):
         return {"ready": False, "reason": "Waiting for 35 candles", "values": {}}
     df = pd.DataFrame(candles)
     c = df.close.astype(float)
-    scale = max(1, round(tf/10))
-    aroon_n = max(10, min(50, 10*scale))
-    osma_fast = max(5, min(30, 10*scale))
-    osma_slow = max(osma_fast+2, min(60, 20*scale))
-    osma_signal = max(5, min(30, 10*scale))
+    # Preserve the original 30-second-candle baseline (Aroon 10,
+    # OsMA 10/20/10) as timeframe changes. Shorter candles use
+    # proportionally longer lookbacks; longer candles use shorter ones.
+    scale = 30.0 / float(tf)
+    aroon_n = max(2, round(10 * scale))
+    osma_fast = max(2, round(10 * scale))
+    osma_slow = max(osma_fast + 1, round(20 * scale))
+    osma_signal = max(2, round(10 * scale))
     jaw, teeth, lips = alligator(df)
     au, ad = aroon(df, aroon_n)
     om, oms, oh = osma(c, osma_fast, osma_slow, osma_signal)
