@@ -55,13 +55,17 @@ class DMCSignalEngine:
               10.0*self._clamp(abs(spread or 0.0)/25.0) if di_side != "WAIT" else 0,
               f"DI spread {spread}; full separation points at 25+")
         velocity, acceleration = v.get("di_velocity"), v.get("di_acceleration")
-        velocity_ok = di_side != "WAIT" and velocity is not None and di_side == ("CALL" if velocity > 0 else "PUT") and velocity != 0
-        acceleration_ok = di_side != "WAIT" and acceleration is not None and di_side == ("CALL" if acceleration > 0 else "PUT") and acceleration != 0
-        award("DI velocity", di_side,
-              8.0*self._clamp(abs(velocity or 0.0)/2.5) if velocity_ok else 0,
+        # Score DI momentum independently: opposing momentum earns points on
+        # its own side instead of being vetoed by the current DI crossover.
+        velocity_side = "CALL" if velocity is not None and velocity > 0 else (
+                        "PUT" if velocity is not None and velocity < 0 else "WAIT")
+        acceleration_side = "CALL" if acceleration is not None and acceleration > 0 else (
+                            "PUT" if acceleration is not None and acceleration < 0 else "WAIT")
+        award("DI velocity", velocity_side,
+              8.0*self._clamp(abs(velocity or 0.0)/2.5) if velocity_side != "WAIT" else 0,
               f"Spread change per candle {velocity}")
-        award("DI acceleration", di_side,
-              7.0*self._clamp(abs(acceleration or 0.0)/1.5) if acceleration_ok else 0,
+        award("DI acceleration", acceleration_side,
+              7.0*self._clamp(abs(acceleration or 0.0)/1.5) if acceleration_side != "WAIT" else 0,
               f"Change in DI velocity {acceleration}")
 
         # Confirmed Bill Williams fractal: user's requested arrow mapping.
@@ -140,7 +144,9 @@ class DMCSignalEngine:
         score = max(call, put)
         side = "CALL" if call > put else "PUT" if put > call else "WAIT"
         margin = abs(call-put)
-        signal = side if score >= 55 and margin >= 8 else "WAIT"
+        # No directional-margin / indicator-agreement gate: all component
+        # scores accumulate independently. The stronger side signals at 55+.
+        signal = side if score >= 55 else "WAIT"
         confidence = min(100, round(score))
         win_probability = (max(50, min(85, round(50 + max(0, score-55)*0.6)))
                            if signal != "WAIT" else 50)
@@ -152,8 +158,8 @@ class DMCSignalEngine:
             "call_score": round(call, 1), "put_score": round(put, 1),
             "score_threshold": 55, "directional_margin": round(margin, 1),
             "aligned_components": aligned,
-            "reason": (f"{aligned}/12 components aligned {side}; weighted confluence"
-                       if signal != "WAIT" else "WAIT: score below 55 or directional margin below 8"),
+            "reason": (f"{aligned}/12 components currently favor {side}; independent weighted confluence"
+                       if signal != "WAIT" else "WAIT: neither direction has reached the 55-point signal threshold"),
             "votes": votes, "automatic_execution": False, "mode": "SIGNAL_ONLY",
             "settings": {k: v[k] for k in ("fractal_period", "aroon_period", "osma_fast",
                          "osma_slow", "osma_signal_period") if k in v},
