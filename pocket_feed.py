@@ -9,7 +9,7 @@ import websockets
 
 log = logging.getLogger("alucard.feed")
 # Keep high-volume feed diagnostics off on the Render free tier.
-log.setLevel(logging.WARNING)
+log.setLevel(logging.INFO)
 
 
 class PocketOptionFeed:
@@ -222,7 +222,10 @@ class PocketOptionFeed:
         return str(packet[0]), packet[1], attachments
 
     async def _handshake(self, ws):
-        first = await asyncio.wait_for(ws.recv(), timeout=15)
+        try:
+            first = await asyncio.wait_for(ws.recv(), timeout=15)
+        except asyncio.TimeoutError as exc:
+            raise RuntimeError(f"Engine.IO handshake timed out at {urlparse(ws.remote_address[0] if False else self._url()).netloc}") from exc
         if isinstance(first, bytes):
             first = first.decode("utf-8", "ignore")
         if not str(first).startswith("0"):
@@ -231,7 +234,10 @@ class PocketOptionFeed:
 
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
-            msg = await asyncio.wait_for(ws.recv(), timeout=max(1, deadline - time.monotonic()))
+            try:
+                msg = await asyncio.wait_for(ws.recv(), timeout=max(1, deadline - time.monotonic()))
+            except asyncio.TimeoutError as exc:
+                raise RuntimeError("Socket.IO namespace handshake timed out waiting for server acknowledgement") from exc
             if isinstance(msg, bytes):
                 continue
             if str(msg) == "40" or str(msg).startswith("40"):
@@ -250,7 +256,10 @@ class PocketOptionFeed:
 
         auth_deadline = time.monotonic() + 45
         while time.monotonic() < auth_deadline:
-            msg = await asyncio.wait_for(ws.recv(), timeout=max(1, auth_deadline - time.monotonic()))
+            try:
+                msg = await asyncio.wait_for(ws.recv(), timeout=max(1, auth_deadline - time.monotonic()))
+            except asyncio.TimeoutError as exc:
+                raise RuntimeError("Timed out waiting for Pocket Option auth response; session may be stale or broker did not reply") from exc
             if isinstance(msg, bytes):
                 continue
 
@@ -280,7 +289,12 @@ class PocketOptionFeed:
                 log.info("Pocket Option authorization accepted")
                 return
             if event == "updateAssets":
-                log.info("Pocket Option auth-stage assets received; continuing authorization wait")
+                if self.on_assets:
+                    try:
+                        self.on_assets(body)
+                    except Exception:
+                        log.exception("Could not parse auth-stage broker asset catalog")
+                log.info("Pocket Option auth-stage assets event received")
                 if len(packets) > 1 and auth_attempt == 0:
                     auth_attempt = 1
                     await ws.send(packets[1])
@@ -460,7 +474,7 @@ class PocketOptionFeed:
         while self.running:
             try:
                 url = self._url()
-                log.info("connecting to Pocket Option websocket")
+                log.info("connecting to Pocket Option websocket region %s", urlparse(url).netloc)
                 async with websockets.connect(
                     url,
                     ping_interval=20,
@@ -544,7 +558,7 @@ class PocketOptionFeed:
                                     log.exception("Could not parse broker asset catalog")
                             if event == "updateAssets" and self._update_assets_samples < 2:
                                 self._update_assets_samples += 1
-                                log.debug(
+                                log.info(
                                     "Pocket Option updateAssets diagnostic %d: %s",
                                     self._update_assets_samples,
                                     self._safe_body_summary(body, 2200),
@@ -552,7 +566,7 @@ class PocketOptionFeed:
 
                             if event == "updateStream" and self._update_stream_samples < 5:
                                 self._update_stream_samples += 1
-                                log.debug(
+                                log.info(
                                     "Pocket Option updateStream sample %d: %s",
                                     self._update_stream_samples,
                                     self._safe_body_summary(body, 2200),
