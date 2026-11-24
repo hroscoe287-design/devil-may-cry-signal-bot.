@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import json
 import time
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
@@ -26,30 +27,52 @@ feed_task = None
 broker_assets = {}
 
 def flatten_catalog(obj):
-    """Extract symbols from Pocket Option's varying updateAssets payload shapes."""
+    """Extract broker symbols from list, dict, JSON-string, or binary catalog payloads."""
     found = set()
     ignored = {"forex", "currency", "currencies", "crypto", "cryptocurrency",
                "commodities", "stocks", "indices", "otc", "assets", "symbols",
                "data", "result", "success", "name", "symbol", "ticker",
                "asset", "active_name", "active", "instrument", "category"}
-    def add(value):
+    if isinstance(obj, (bytes, bytearray)):
+        try:
+            obj = obj.decode("utf-8")
+        except UnicodeDecodeError:
+            return []
+    if isinstance(obj, str):
+        try:
+            obj = json.loads(obj)
+        except (TypeError, ValueError):
+            obj = [obj]
+
+    def add(value, from_name=False):
         if not isinstance(value, str):
             return
         s = value.strip().lstrip("#")
+        if not s:
+            return
+        upper = s.upper()
+        otc = upper.endswith(" OTC") or upper.endswith("_OTC")
+        base = upper[:-4].strip() if upper.endswith("_OTC") or upper.endswith(" OTC") else upper
+        compact = "".join(ch for ch in base if ch.isalpha())
+        if from_name and len(compact) == 6 and base not in ignored:
+            s = compact + ("_otc" if otc else "")
         low = s.lower()
         if (2 <= len(s) <= 32 and low not in ignored and
             any(ch.isalpha() for ch in s) and " " not in s and
             all(ch.isalnum() or ch in "_-./" for ch in s)):
             found.add(s)
+
     def walk(x):
         if isinstance(x, dict):
             for k, v in x.items():
                 key = str(k).strip()
-                if key.lower() in ("name", "symbol", "ticker", "asset", "active_name",
-                                   "active", "instrument", "asset_name", "assetname"):
-                    add(v)
-                # Some broker versions encode symbols as object keys.
-                add(key)
+                lk = key.lower()
+                if lk in ("name", "symbol", "ticker", "asset", "active_name",
+                          "active", "instrument", "asset_name", "assetname",
+                          "displayname", "display_name"):
+                    add(v, from_name=True)
+                if any(ch.isalpha() for ch in key) and lk not in ignored:
+                    add(key)
                 walk(v)
         elif isinstance(x, (list, tuple)):
             for v in x:
