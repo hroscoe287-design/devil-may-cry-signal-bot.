@@ -217,9 +217,12 @@ class PocketOptionFeed:
             packet = json.loads(raw)
         except Exception:
             return None
-        if not isinstance(packet, list) or len(packet) < 2:
+        if not isinstance(packet, list) or not packet:
             return None
-        return str(packet[0]), packet[1], attachments
+        # Some current Pocket Option servers emit acknowledgement events
+        # without a second data argument (for example ["auth/success"]).
+        body = packet[1] if len(packet) > 1 else {}
+        return str(packet[0]), body, attachments
 
     async def _handshake(self, ws):
         try:
@@ -284,10 +287,13 @@ class PocketOptionFeed:
                     attachments.append(attachment)
                 body = self._replace_placeholders(body, attachments)
 
-            if event == "successauth":
+            if event in {"successauth", "auth/success", "user_ready"}:
                 self.authenticated = True
-                log.info("Pocket Option authorization accepted")
+                log.info("Pocket Option authorization accepted via %s", event)
                 return
+            if event in {"NotAuthorized", "auth/error", "auth_error"}:
+                # Never log the auth payload or session token.
+                raise RuntimeError("Pocket Option rejected the session; capture a fresh auth frame from the currently logged-in browser")
             if event == "updateAssets":
                 if self.on_assets:
                     try:
