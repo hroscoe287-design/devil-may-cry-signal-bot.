@@ -59,21 +59,21 @@ class PocketOptionFeed:
         if not self.auth_json.strip():
             return None
         raw = self.auth_json.strip()
+        data = None
         if raw.startswith("42"):
             try:
                 packet = json.loads(raw[2:])
                 if isinstance(packet, list) and len(packet) >= 2 and packet[0] == "auth":
-                    return packet[1]
+                    data = packet[1]
             except Exception:
-                pass
-        try:
-            data = json.loads(raw)
-        except Exception:
-            data = {"session": raw}
+                data = None
+        else:
+            try:
+                data = json.loads(raw)
+            except Exception:
+                data = {"session": raw}
         if isinstance(data, list):
-            if len(data) >= 2 and data[0] == "auth":
-                return data[1]
-            return None
+            data = data[1] if len(data) >= 2 and data[0] == "auth" else None
         if isinstance(data, dict) and "command" in data:
             data = data.get("data") or {}
         if not isinstance(data, dict):
