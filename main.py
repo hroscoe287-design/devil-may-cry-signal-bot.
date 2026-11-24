@@ -75,6 +75,14 @@ def flatten_catalog(obj):
                     add(key)
                 walk(v)
         elif isinstance(x, (list, tuple)):
+            # Pocket Option updateAssets rows are positional records:
+            # [id, "#SYMBOL", display name, category, ...].
+            # Treat only field 1 as the tradable symbol; the other strings
+            # are labels/categories, not independent market symbols.
+            if (len(x) >= 3 and isinstance(x[0], (int, float))
+                    and isinstance(x[1], str)):
+                add(x[1])
+                return
             for v in x:
                 if isinstance(v, str):
                     add(v)
