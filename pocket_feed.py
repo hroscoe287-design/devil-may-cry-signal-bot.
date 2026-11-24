@@ -294,7 +294,8 @@ class PocketOptionFeed:
                         self.on_assets(body)
                     except Exception:
                         log.exception("Could not parse auth-stage broker asset catalog")
-                log.info("Pocket Option auth-stage assets event received")
+                log.info("Pocket Option auth-stage assets event received; payload=%s",
+                         self._safe_body_summary(body, 2200))
                 if len(packets) > 1 and auth_attempt == 0:
                     auth_attempt = 1
                     await ws.send(packets[1])
