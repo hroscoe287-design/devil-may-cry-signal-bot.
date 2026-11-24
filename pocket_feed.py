@@ -89,7 +89,7 @@ class PocketOptionFeed:
             safe_keys = sorted(str(k) for k in payload.keys())[:20]
             log.error(
                 "PO_AUTH_JSON has the wrong/incomplete auth shape; missing=%s present_keys=%s. "
-                "Use the complete outgoing 42[\\"auth\\",{...}] browser frame with session, uid, and isDemo.",
+                "Use the complete outgoing browser auth frame with session, uid, and isDemo.",
                 missing, safe_keys,
             )
             return None
