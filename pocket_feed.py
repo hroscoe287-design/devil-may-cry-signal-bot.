@@ -277,6 +277,11 @@ class PocketOptionFeed:
             if decoded is None:
                 continue
             event, body, count = decoded
+            # Log event names and non-sensitive shape only; never log auth payload values.
+            if event not in {"updateAssets"}:
+                body_keys = sorted(body.keys())[:12] if isinstance(body, dict) else []
+                log.info("Pocket Option auth-stage event: %s; body_type=%s; body_keys=%s",
+                         event, type(body).__name__, body_keys)
 
             if count:
                 attachments = []
