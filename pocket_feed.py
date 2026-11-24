@@ -77,14 +77,44 @@ class PocketOptionFeed:
         if isinstance(data, dict) and "command" in data:
             data = data.get("data") or {}
         if not isinstance(data, dict):
+            log.error("PO_AUTH_JSON must be a Pocket Option auth object; received %s", type(data).__name__)
             return None
 
-        # Normalize the current Pocket Option auth protocol while preserving
-        # the captured session, uid, and demo/real fields.
+        # Pocket Option's chart socket expects the browser's session-based
+        # auth frame. A sessionToken-only / chart-socket object is not valid.
         payload = dict(data)
+        required = ("session", "uid", "isDemo")
+        missing = [key for key in required if key not in payload or payload.get(key) in (None, "")]
+        if missing:
+            safe_keys = sorted(str(k) for k in payload.keys())[:20]
+            log.error(
+                "PO_AUTH_JSON has the wrong/incomplete auth shape; missing=%s present_keys=%s. "
+                "Use the complete outgoing 42[\\"auth\\",{...}] browser frame with session, uid, and isDemo.",
+                missing, safe_keys,
+            )
+            return None
+        if not isinstance(payload.get("session"), str) or len(payload["session"].strip()) < 10:
+            log.error("PO_AUTH_JSON session field is not a valid session string")
+            return None
+        try:
+            int(payload["uid"])
+        except (TypeError, ValueError):
+            log.error("PO_AUTH_JSON uid field is not numeric")
+            return None
+        if str(payload.get("isDemo")) not in {"0", "1", "True", "False"}:
+            log.error("PO_AUTH_JSON isDemo field must be 0 or 1")
+            return None
+
+        # Normalize optional current Pocket Option auth fields without
+        # changing the captured session/account identity.
         payload.setdefault("platform", 2)
         payload.setdefault("isFastHistory", True)
         payload.setdefault("isOptimized", True)
+        log.info(
+            "PO_AUTH_JSON shape validated: session_present=true uid_present=true "
+            "isDemo=%s platform=%s",
+            payload.get("isDemo"), payload.get("platform"),
+        )
         return payload
 
     def _auth_packets(self):
@@ -95,7 +125,10 @@ class PocketOptionFeed:
             try:
                 packet = json.loads(raw[2:])
                 if isinstance(packet, list) and len(packet) >= 2 and packet[0] == "auth":
-                    packets.append(raw)
+                    # Never send a captured frame whose payload lacks the
+                    # session-based fields required by the chart socket.
+                    if self._auth_payload() is not None:
+                        packets.append(raw)
             except Exception:
                 pass
         payload = self._auth_payload()
