@@ -26,26 +26,80 @@ feed_task = None
 broker_assets = {}
 
 def flatten_catalog(obj):
+    """Extract symbols from Pocket Option's varying updateAssets payload shapes."""
     found = set()
+    ignored = {"forex", "currency", "currencies", "crypto", "cryptocurrency",
+               "commodities", "stocks", "indices", "otc", "assets", "symbols",
+               "data", "result", "success", "name", "symbol", "ticker",
+               "asset", "active_name", "active", "instrument", "category"}
+    def add(value):
+        if not isinstance(value, str):
+            return
+        s = value.strip().lstrip("#")
+        low = s.lower()
+        if (2 <= len(s) <= 32 and low not in ignored and
+            any(ch.isalpha() for ch in s) and " " not in s and
+            all(ch.isalnum() or ch in "_-./" for ch in s)):
+            found.add(s)
     def walk(x):
         if isinstance(x, dict):
             for k, v in x.items():
-                if str(k).lower() in ("name", "symbol", "ticker", "asset", "active_name") and isinstance(v, str):
-                    s = v.strip().lstrip("#")
-                    if 2 <= len(s) <= 32 and any(ch.isalpha() for ch in s) and " " not in s:
-                        found.add(s)
+                key = str(k).strip()
+                if key.lower() in ("name", "symbol", "ticker", "asset", "active_name",
+                                   "active", "instrument", "asset_name", "assetname"):
+                    add(v)
+                # Some broker versions encode symbols as object keys.
+                add(key)
                 walk(v)
-        elif isinstance(x, list):
+        elif isinstance(x, (list, tuple)):
             for v in x:
-                walk(v)
+                if isinstance(v, str):
+                    add(v)
+                else:
+                    walk(v)
     walk(obj)
     return sorted(found)
+
+def asset_groups(names):
+    groups = {"Forex": [], "Forex OTC": [], "Commodities": [],
+              "Commodities OTC": [], "Crypto": [], "Crypto OTC": [],
+              "Stocks": [], "Stocks OTC": [], "Indices": [], "Indices OTC": [],
+              "Other": []}
+    crypto = ("BTC", "ETH", "LTC", "XRP", "BCH", "DOGE", "ADA", "SOL",
+              "DOT", "LINK", "AVAX", "BNB", "TRX", "TON", "SHIB")
+    commodities = ("XAU", "XAG", "GOLD", "SILVER", "OIL", "WTI", "BRENT", "NATGAS")
+    indices = ("US30", "US100", "NAS", "SPX", "SP500", "GER", "DAX",
+               "UK100", "FTSE", "JPN", "JP225", "CAC", "AUS200", "HK")
+    stocks = {"AAPL", "MSFT", "AMZN", "TSLA", "GOOGL", "META", "NFLX",
+              "NVDA", "VISA", "BA", "AMD", "INTC", "PFE", "COIN", "BABA",
+              "MCD", "PYPL", "CSCO", "JPM", "JNJ", "XOM", "GME", "PLTR"}
+    for raw in sorted(set(names)):
+        s = str(raw).lstrip("#")
+        u = s.upper()
+        otc = u.endswith("_OTC")
+        base = u[:-4] if otc else u
+        if any(x in base for x in crypto):
+            group = "Crypto OTC" if otc else "Crypto"
+        elif any(x in base for x in commodities):
+            group = "Commodities OTC" if otc else "Commodities"
+        elif base in stocks or base.replace("_", "") in stocks:
+            group = "Stocks OTC" if otc else "Stocks"
+        elif any(x in base for x in indices):
+            group = "Indices OTC" if otc else "Indices"
+        elif len(base) == 6 and base.isalpha():
+            group = "Forex OTC" if otc else "Forex"
+        else:
+            group = "Other"
+        groups[group].append(s)
+    return {k: v for k, v in groups.items() if v}
 
 def on_assets(payload):
     global broker_assets
     names = flatten_catalog(payload)
     if names:
         broker_assets = {x: True for x in names}
+        log = logging.getLogger("dmc.assets")
+        log.warning("Pocket Option broker catalog received: %d symbols", len(names))
 
 def on_history(items):
     if builder.load_candles(items):
@@ -116,12 +170,19 @@ async def generate():
 
 @app.get("/api/assets")
 async def api_assets():
-    if broker_assets:
-        names = sorted(broker_assets)
-        return {"source": "Pocket Option updateAssets event", "complete_from_broker": True,
-                "assets": names, "categories": {"Broker catalog": names}, "count": len(names)}
-    return {"source": "seed catalog; broker catalog pending", "complete_from_broker": False,
-            "assets": ASSETS, "categories": ASSETS, "count": sum(map(len, ASSETS.values()))}
+    seed = {x for group in ASSETS.values() for x in group}
+    live = set(broker_assets)
+    names = sorted(seed | live)
+    categories = asset_groups(names)
+    return {
+        "source": "Pocket Option live updateAssets catalog + seed fallback" if live else "seed catalog; waiting for Pocket Option live catalog",
+        "complete_from_broker": bool(live),
+        "broker_asset_count": len(live),
+        "fallback_asset_count": len(seed),
+        "assets": names,
+        "categories": categories,
+        "count": len(names),
+    }
 
 @app.get("/api/timeframes")
 async def api_timeframes():
